@@ -28,6 +28,20 @@ class NavLog(NamedTuple):
     timeout: bool
     time: float
     nav_metric: float
+
+def get_optimal_time(idx):
+    if idx >= 300: # Dynabarn
+        path_length = -31 # hardcoded matching run.py
+    else:
+        path_file_name = f"jackal_helper/worlds/BARN/path_files/path_{idx}.npy"
+        path_array = np.load(path_file_name)
+        path_array = [path_coord_to_gazebo_coord(*p) for p in path_array]
+        path_array = np.insert(path_array, 0, (INIT_POSITION[0], INIT_POSITION[1]), axis=0)
+        path_array = np.insert(path_array, len(path_array), (INIT_POSITION[0] + GOAL_POSITION[0], INIT_POSITION[1] + GOAL_POSITION[1]), axis=0)
+        path_length = 0
+        for p1, p2 in zip(path_array[:-1], path_array[1:]):
+            path_length += compute_distance(p1, p2)
+    return path_length / 2
         
 if __name__ == "__main__":
     
@@ -37,49 +51,56 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     base_path = 'jackal_helper'
-    optimal_times = {}
-    cell_counts = {}
-    for idx in range(50):
-        path_file_name = join(base_path, "worlds/BARN/path_files", "path_%d.npy" %(idx * 6))
-        path_array = np.load(path_file_name)
-        path_array = [path_coord_to_gazebo_coord(*p) for p in path_array]
-        path_array = np.insert(path_array, 0, (INIT_POSITION[0], INIT_POSITION[1]), axis=0)
-        path_array = np.insert(path_array, len(path_array), (INIT_POSITION[0] + GOAL_POSITION[0], INIT_POSITION[1] + GOAL_POSITION[1]), axis=0)
-        path_length = 0
-        for p1, p2 in zip(path_array[:-1], path_array[1:]):
-            path_length += compute_distance(p1, p2)
-        optimal_times[idx * 6] = path_length / 2
 
     results = defaultdict(list)
     with open(args.out_path, "r") as f:
         for l in f.readlines():
             logs = l.split(" ")
             world_idx = int(logs[0])
+            optimal_time = get_optimal_time(world_idx)
             nav_log = NavLog(
                 world_idx,
                 bool(int(logs[1])),
                 bool(int(logs[2])),
                 bool(int(logs[3])),
                 float(logs[4]),
-                int(logs[1]) * optimal_times[world_idx] / np.clip(float(logs[4]), optimal_times[world_idx] * 4, optimal_times[world_idx] * 8)  # 1_success * optimal_time / clip(actual_time, 2 * optimal_time, 4 * optimal_time)
+                int(logs[1]) * optimal_time / np.clip(float(logs[4]), optimal_time * 4, optimal_time * 8)  # 1_success * optimal_time / clip(actual_time, 2 * optimal_time, 4 * optimal_time)
             )
             results[world_idx].append(nav_log)
 
-    for idx in range(50):
-        if not idx * 6 in results.keys():
-            print("Missing world_%d" %(idx * 6))
-        elif len(results[idx * 6]) < 10:
-            print("Test on world_%d not finished (%d/10)" %(idx * 6, len(results[idx * 6])))
-
-    mean_time = []
+    mean_time_static = []
+    mean_time_dynamic = []
+    total_static_world = 0
+    total_dynamic_world = 0
+    total_static_test = 0
+    total_dynamic_test = 0
     for k in results.keys():
         mean_time_world = [nl.time for nl in results[k] if nl.succeeded]
-        if len(mean_time_world) > 0:
-            mean_time.append(np.mean(mean_time_world))
+        if k < 300:
+            if len(mean_time_world) > 0:
+                mean_time_static.append(np.mean(mean_time_world))
+            total_static_world += 1
+            total_static_test += len(results[k])
+        else:
+            if len(mean_time_world) > 0:
+                mean_time_dynamic.append(np.mean(mean_time_world))
+            total_dynamic_world += 1
+            total_dynamic_test += len(results[k])
+    print("==================================== STATIC RESULT ===========================================")
+    print(f"No of worlds: {total_static_world}, No of tests: {total_static_test}")
     print("Avg Time: %.4f, Avg Metric: %.4f, Avg Success: %.4f, Avg Collision: %.4f, Avg Timeout: %.4f" %(
-        np.mean(mean_time),
-        np.mean([np.mean([nl.nav_metric for nl in results[k]]) for k in results.keys()]),
-        np.mean([np.mean([nl.succeeded for nl in results[k]]) for k in results.keys()]),
-        np.mean([np.mean([nl.collided for nl in results[k]]) for k in results.keys()]),
-        np.mean([np.mean([nl.timeout for nl in results[k]]) for k in results.keys()]),
+        np.mean(mean_time_static) if mean_time_static else 0.0,
+        np.mean([np.mean([nl.nav_metric for nl in results[k]]) for k in results.keys() if k < 300]),
+        np.mean([np.mean([nl.succeeded for nl in results[k]]) for k in results.keys() if k < 300]),
+        np.mean([np.mean([nl.collided for nl in results[k]]) for k in results.keys() if k < 300]),
+        np.mean([np.mean([nl.timeout for nl in results[k]]) for k in results.keys() if k < 300]),
+    ))
+    print("==================================== DYNAMIC RESULT ===========================================")
+    print(f"No of worlds: {total_dynamic_world}, No of tests: {total_dynamic_test}")
+    print("Avg Time: %.4f, Avg Metric: %.4f, Avg Success: %.4f, Avg Collision: %.4f, Avg Timeout: %.4f" %(
+        np.mean(mean_time_dynamic) if mean_time_dynamic else 0.0,
+        np.mean([np.mean([nl.nav_metric for nl in results[k]]) for k in results.keys() if k >= 300]),
+        np.mean([np.mean([nl.succeeded for nl in results[k]]) for k in results.keys() if k >= 300]),
+        np.mean([np.mean([nl.collided for nl in results[k]]) for k in results.keys() if k >= 300]),
+        np.mean([np.mean([nl.timeout for nl in results[k]]) for k in results.keys() if k >= 300]),
     ))

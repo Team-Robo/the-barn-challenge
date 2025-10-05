@@ -7,11 +7,10 @@ from os.path import join
 import numpy as np
 import rospy
 import rospkg
+import sys
 
 from gazebo_simulation import GazeboSimulation
-
-INIT_POSITION = [-2, 3, 1.57]  # in world frame
-GOAL_POSITION = [0, 10]  # relative to the initial position
+import signal
 
 def compute_distance(p1, p2):
     return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
@@ -26,20 +25,42 @@ def path_coord_to_gazebo_coord(x, y):
 
         return (gazebo_x, gazebo_y)
 
+processes = []
+
+def shutdown_handler(signum, frame):
+    print("\n[Shutdown] Caught signal, terminating all subprocesses...")
+
+    for process in processes:
+        if process.poll() is None:  # still running
+            print(f"[Shutdown] Terminating: {process.args}")
+            process.terminate()
+            try:
+                # Wait indefinitely for the process to exit
+                process.wait()
+                print(f"[Shutdown] {process.args} exited cleanly.")
+            except Exception as e:
+                print(f"[Error] Waiting for process {process.args} failed: {e}")
+
+    rospy.signal_shutdown("User interrupt")
+    print("[Shutdown] All subprocesses have exited. ROS node shutting down.")
+    sys.exit(0)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = 'test BARN navigation challenge')
     parser.add_argument('--world_idx', type=int, default=0)
     parser.add_argument('--gui', action="store_true")
-    parser.add_argument('--out', type=str, default=None)
     parser.add_argument('--launch', type=str, default="move_base_DWA.launch")
-    parser.add_argument('--rviz', action='store_true', help="Launch RViz")
     parser.add_argument('--rviz_config', type=str, default="common.rviz")
 
     args = parser.parse_args()
 
-    if args.out is None:
-        args.out = args.launch + ".txt"
-    
+    #if args.out is None:
+    #    args.out = args.launch + ".txt"
+
+    # Register signal handler
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
     ##########################################################################################
     ## 0. Launch Gazebo Simulation
     ##########################################################################################
@@ -51,11 +72,11 @@ if __name__ == "__main__":
     if args.world_idx < 300:  # static environment from 0-299
         world_name = "BARN/world_%d.world" %(args.world_idx)
         INIT_POSITION = [-2.25, 3, 1.57]  # in world frame
-        GOAL_POSITION = [0, 10]  # relative to the initial position
+        #GOAL_POSITION = [0, 10]  # relative to the initial position
     elif args.world_idx < 360:  # Dynamic environment from 300-359
         world_name = "DynaBARN/world_%d.world" %(args.world_idx - 300)
         INIT_POSITION = [11, 0, 3.14]  # in world frame
-        GOAL_POSITION = [-20, 0]  # relative to the initial position
+        #GOAL_POSITION = [-20, 0]  # relative to the initial position
     else:
         raise ValueError("World index %d does not exist" %args.world_idx)
     
@@ -73,19 +94,20 @@ if __name__ == "__main__":
         launch_file,
         'world_name:=' + world_name,
         'gui:=' + ("true" if args.gui else "false"),
-        'rviz:=' + ("true" if args.rviz else "false"),
+        'rviz:=true',
         'rviz_config:=' + rviz_config
     ])
+    processes.append(gazebo_process)
     time.sleep(5)  # sleep to wait until the gazebo being created
     
-    rospy.init_node('gym', anonymous=True) #, log_level=rospy.FATAL)
+    rospy.init_node('playground', anonymous=True) #, log_level=rospy.FATAL)
     rospy.set_param('/use_sim_time', True)
     
     # GazeboSimulation provides useful interface to communicate with gazebo  
     gazebo_sim = GazeboSimulation(init_position=INIT_POSITION)
     
     init_coor = (INIT_POSITION[0], INIT_POSITION[1])
-    goal_coor = (INIT_POSITION[0] + GOAL_POSITION[0], INIT_POSITION[1] + GOAL_POSITION[1])
+    #goal_coor = (INIT_POSITION[0] + GOAL_POSITION[0], INIT_POSITION[1] + GOAL_POSITION[1])
     
     pos = gazebo_sim.get_model_state().pose.position
     curr_coor = (pos.x, pos.y)
@@ -112,7 +134,16 @@ if __name__ == "__main__":
         'roslaunch',
         launch_file,
     ])
+    processes.append(nav_stack_process)
     
+    
+    # Wait indefinitely (keep script alive)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        shutdown_handler(None, None)
+    """
     # Make sure your navigation stack recives the correct goal position defined in GOAL_POSITION
     import actionlib
     from geometry_msgs.msg import Quaternion
@@ -199,8 +230,4 @@ if __name__ == "__main__":
     
     with open(args.out, "a") as f:
         f.write("%d %d %d %d %.4f %.4f\n" %(args.world_idx, success, collided, (curr_time - start_time)>=100, curr_time - start_time, nav_metric))
-    
-    gazebo_process.terminate()
-    gazebo_process.wait()
-    nav_stack_process.terminate()
-    nav_stack_process.wait()
+    """
