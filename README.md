@@ -1,6 +1,8 @@
 # THIS FORKED REPO ADDED EXTRA FEATURES TO ORIGINAL BARN CHALLENGE REPO
 [check out extra features](#extra-features)
 
+[navigation stack test result](#navigation-stack-test-result)
+
 ## Content of extra features
 - [Rviz](#rviz)
 - [New test script](#more-flexible-test-script-and-more-detailed-test-report)
@@ -8,7 +10,21 @@
 - [Move base's TEB and MPC installation guide](#move_base-teb--mpc-local-planner-plugin)
 
 --------------------------------------------------------------------------------
+# Navigation Stack Test Result
 
+> NOTE: `Avg Time` only calculate for success run. All the values with parenthesis is for DynaBarn world 
+
+|                  | move_base DWA  | move_base eband |
+|------------------|----------------|-----------------|
+| No of worlds     | 34(6)          | 34(6)           |
+| No of tests      | 170(30)        | 170(30)         |
+| Avg Time         | 31.9299(0)     | 16.9837(0)      |
+| Avg Metric       | 0.1670(0)      | 0.2233(0)       |
+| Avg Success      | 0.8529(0)      | 0.8941(0)       |
+| Avg Collision    | 0.0647(0)      | 0.0529(0)       |
+| Avg Timeout      | 0.0824(1)      | 0.0529(1)       |
+
+--------------------------------------------------------------------------------
 <p align="center">
   <img width = "100%" src='res/BARN_Challenge.png' />
   </p>
