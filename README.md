@@ -14,15 +14,15 @@
 
 > NOTE: `Avg Time` only calculate for success run. All the values with parenthesis is for DynaBarn world 
 
-|                  | move_base DWA  | move_base eband |
-|------------------|----------------|-----------------|
-| No of worlds     | 34(6)          | 34(6)           |
-| No of tests      | 170(30)        | 170(30)         |
-| Avg Time         | 31.9299(0)     | 16.9837(0)      |
-| Avg Metric       | 0.1670(0)      | 0.2233(0)       |
-| Avg Success      | 0.8529(0)      | 0.8941(0)       |
-| Avg Collision    | 0.0647(0)      | 0.0529(0)       |
-| Avg Timeout      | 0.0824(1)      | 0.0529(1)       |
+|                  | move_base DWA | move_base fast DWA | move_base eband |
+|------------------|---------------|--------------------|-----------------|
+| No of worlds     | 34(6)         | 34(6)              | 34(6)           |
+| No of tests      | 170(30)       | 170(30)            | 170(30)         |
+| Avg Time         | 31.9299(0)    | 25.4210(0)         | 16.9837(0)      |
+| Avg Metric       | 0.1670(0)     | 0.1719(0)          | 0.2233(0)       |
+| Avg Success      | 0.8529(0)     | 0.7824(0)          | 0.8941(0)       |
+| Avg Collision    | 0.0647(0)     | 0.1412(0)          | 0.0529(0)       |
+| Avg Timeout      | 0.0824(1)     | 0.0765(0)          | 0.0529(1)       |
 
 --------------------------------------------------------------------------------
 <p align="center">
