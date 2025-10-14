@@ -64,7 +64,7 @@ if __name__ == "__main__":
                 bool(int(logs[2])),
                 bool(int(logs[3])),
                 float(logs[4]),
-                int(logs[1]) * optimal_time / np.clip(float(logs[4]), optimal_time * 4, optimal_time * 8)  # 1_success * optimal_time / clip(actual_time, 2 * optimal_time, 4 * optimal_time)
+                float(logs[5])
             )
             results[world_idx].append(nav_log)
 
